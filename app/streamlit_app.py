@@ -53,6 +53,58 @@ def load_model_registry(items: tuple[tuple[str, str], ...]) -> dict[str, Any]:
     return loaded
 
 
+def resolve_artifact_path(path_str: str) -> Path:
+    p = Path(path_str).expanduser()
+    if p.exists():
+        return p
+
+    if not p.is_absolute():
+        local = PROJECT_ROOT / p
+        if local.exists():
+            return local
+
+    normalized = path_str.replace("\\", "/")
+    for anchor in ("models/", "reports/", "data/"):
+        idx = normalized.find(anchor)
+        if idx != -1:
+            local = PROJECT_ROOT / normalized[idx:]
+            if local.exists():
+                return local
+
+    name = p.name
+    for base in (PROJECT_ROOT / "models" / "candidates", PROJECT_ROOT / "models"):
+        local = base / name
+        if local.exists():
+            return local
+
+    return p
+
+
+def collect_candidate_model_paths(artifact_paths: dict[str, Any], best_model_name: str) -> dict[str, str]:
+    candidate_model_paths = {
+        name: str(resolve_artifact_path(path))
+        for name, path in (artifact_paths.get("candidate_models") or {}).items()
+        if isinstance(path, str)
+    }
+
+    best_model_path = artifact_paths.get("best_model")
+    if best_model_name not in candidate_model_paths and isinstance(best_model_path, str):
+        candidate_model_paths[best_model_name] = str(resolve_artifact_path(best_model_path))
+
+    if candidate_model_paths:
+        return candidate_model_paths
+
+    fallback: dict[str, str] = {}
+    for path in sorted((PROJECT_ROOT / "models" / "candidates").glob("*.joblib")):
+        fallback[path.stem] = str(path)
+
+    best_local = PROJECT_ROOT / "models" / "best_model.joblib"
+    if best_model_name and best_local.exists():
+        fallback.setdefault(best_model_name, str(best_local))
+
+    return fallback
+
+
 @st.cache_data
 def load_base_data() -> tuple[pd.DataFrame, pd.Series]:
     cfg = TrainingConfig()
@@ -973,24 +1025,25 @@ def main() -> None:
     artifact_paths = manifest.get("artifact_paths", {})
     metrics = manifest.get("metrics", {})
 
-    candidate_model_paths = {
-        name: path
-        for name, path in (artifact_paths.get("candidate_models") or {}).items()
-        if isinstance(path, str)
-    }
-
     best_model_name = str(manifest.get("model_name", "unknown"))
-    best_model_path = artifact_paths.get("best_model")
-    if best_model_name not in candidate_model_paths and isinstance(best_model_path, str):
-        candidate_model_paths[best_model_name] = best_model_path
+    candidate_model_paths = collect_candidate_model_paths(
+        artifact_paths=artifact_paths,
+        best_model_name=best_model_name,
+    )
 
     if not candidate_model_paths:
         raise FileNotFoundError("No candidate model artifacts found. Run training first.")
 
     registry_items = tuple(sorted(candidate_model_paths.items()))
     model_registry = load_model_registry(registry_items)
+    if not model_registry:
+        raise FileNotFoundError(
+            "No model artifacts could be loaded from manifest/local model paths."
+        )
 
     model_options = list(model_registry.keys())
+    if not model_options:
+        raise FileNotFoundError("No loadable model options found for the dashboard.")
     default_index = model_options.index(best_model_name) if best_model_name in model_options else 0
 
     raw_features, target = load_base_data()
@@ -1000,6 +1053,8 @@ def main() -> None:
     with st.sidebar:
         st.header("Model Controls")
         selected_model_name = st.selectbox("Active model", model_options, index=default_index)
+        if selected_model_name not in model_registry:
+            selected_model_name = model_options[0]
         st.write(f"**Best model in manifest:** `{best_model_name}`")
         st.write(f"**Primary metric:** `{manifest.get('primary_metric', 'rmse')}`")
 

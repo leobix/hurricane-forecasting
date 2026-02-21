@@ -1,91 +1,220 @@
-# Hurricane Forecasting (Python Pipeline + Streamlit Decision Cockpit)
+# Hurricane Forecasting: ML Pipeline + Streamlit Dashboard
 
-This project provides a Python-first hurricane intensity forecasting workflow:
+This repository is a complete, end-to-end machine learning project for **24-hour hurricane intensity forecasting**.
 
-1. Download and validate raw data.
-2. Engineer cyclical and geospatial features.
-3. Train and compare tree-based regressors with time-aware CV.
-4. Persist trained artifacts and evaluation reports.
-5. Serve a user-friendly Streamlit decision cockpit (inference only, no retraining).
+It has two connected parts:
+1. A **training pipeline** that prepares features, trains models, evaluates them, and saves artifacts.
+2. A **Streamlit dashboard** that loads those saved artifacts and lets you interact with predictions.
 
-The legacy notebook-export file is retained as reference:
-- `/Users/leobix/hurricane-forecasting/tutorial_1_hurricane_forecasting_and_boosted_trees_v1.py`
+If you are opening this repo for the first time as a student, this README walks you through what each piece does and how to run everything on your own computer.
 
-## Project Layout
+## What You Are Looking At
 
-- `/Users/leobix/hurricane-forecasting/src/hurricane_forecasting/config.py`
-- `/Users/leobix/hurricane-forecasting/src/hurricane_forecasting/data.py`
-- `/Users/leobix/hurricane-forecasting/src/hurricane_forecasting/features.py`
-- `/Users/leobix/hurricane-forecasting/src/hurricane_forecasting/models.py`
-- `/Users/leobix/hurricane-forecasting/src/hurricane_forecasting/evaluate.py`
-- `/Users/leobix/hurricane-forecasting/src/hurricane_forecasting/train.py`
-- `/Users/leobix/hurricane-forecasting/scripts/train_models.py`
-- `/Users/leobix/hurricane-forecasting/app/streamlit_app.py`
-- `/Users/leobix/hurricane-forecasting/models/`
-- `/Users/leobix/hurricane-forecasting/reports/`
-- `/Users/leobix/hurricane-forecasting/data/raw/`
+This is not just a notebook. It is a production-style workflow split into modules:
+- Data loading + validation
+- Feature engineering
+- Model training + model selection
+- Artifact/report generation
+- Interactive app for inference and analysis
 
-## Setup
+The old notebook-export script is kept only as reference:
+- `tutorial_1_hurricane_forecasting_and_boosted_trees_v1.py`
+
+## Learning Goals
+
+By running this project, you will practice:
+- Building a structured ML pipeline (instead of one large notebook)
+- Time-aware model evaluation for forecasting tasks
+- Comparing baseline vs. tree-based models
+- Persisting trained artifacts for reproducible inference
+- Serving model outputs in an interactive decision dashboard
+
+## End-to-End Flow (Big Picture)
+
+1. `scripts/train_models.py` starts training.
+2. `src/hurricane_forecasting/data.py` ensures data files exist, downloads if needed, and validates schema.
+3. `src/hurricane_forecasting/features.py` engineers features and creates train/test split.
+4. `src/hurricane_forecasting/models.py` trains candidate models (`dummy`, `cart`, `rf`, `lgbm`).
+5. `src/hurricane_forecasting/train.py` evaluates models, picks the best by RMSE, and saves artifacts.
+6. `app/streamlit_app.py` loads the saved artifacts and serves the interactive dashboard.
+
+## Repository Structure
+
+- `app/streamlit_app.py`
+  Streamlit interface for single, manual, and batch predictions, metrics, SHAP, and visual analytics.
+
+- `scripts/train_models.py`
+  Command-line entry point for training.
+
+- `src/hurricane_forecasting/config.py`
+  Central configuration (paths, model settings, thresholds, required schema).
+
+- `src/hurricane_forecasting/data.py`
+  Data download/cache + schema validation.
+
+- `src/hurricane_forecasting/features.py`
+  Feature transforms (cyclical date and geo transforms) and split logic.
+
+- `src/hurricane_forecasting/models.py`
+  Model training and hyperparameter search.
+
+- `src/hurricane_forecasting/evaluate.py`
+  RMSE/MAE/R² metrics helpers.
+
+- `src/hurricane_forecasting/train.py`
+  Orchestration that writes trained model files and reports.
+
+- `data/raw/`
+  Input CSVs (auto-downloaded if missing).
+
+- `models/`
+  Saved trained models + manifest + preprocessing metadata.
+
+- `reports/`
+  Metrics report and feature-importance outputs.
+
+## First-Time Setup (Local Computer)
+
+### Prerequisites
+- Python **3.11** recommended (matches `runtime.txt`)
+- `pip`
+- Git
+
+### 1) Clone and enter the repo
+
+```bash
+git clone <YOUR_REPO_URL>
+cd hurricane-forecasting
+```
+
+### 2) Create and activate a virtual environment
+
+macOS/Linux:
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
+```
+
+Windows (PowerShell):
+
+```powershell
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+```
+
+### 3) Install dependencies
+
+```bash
 pip install -r requirements.txt
 ```
 
-## Train Models
+### 4) Verify key install
 
 ```bash
-python scripts/train_models.py
+python -c "import streamlit, sklearn, pandas; print('Environment OK')"
 ```
 
-Optional flags:
+## Run Paths
 
-```bash
-python scripts/train_models.py --data-dir data/raw --model all --seed 42 --n-jobs 1
-```
+### Option A: Fastest demo (use existing trained artifacts)
 
-`--model` options: `all`, `dummy`, `cart`, `rf`, `lgbm`.
-
-## Launch Dashboard
+If `models/model_manifest.json` and model files are already present, launch the app directly:
 
 ```bash
 streamlit run app/streamlit_app.py
 ```
 
-The dashboard loads only persisted artifacts from `/Users/leobix/hurricane-forecasting/models/`.
+### Option B: Full student workflow (recommended)
 
-## Artifacts
+Run full training first, then start dashboard:
 
-Training creates the following key outputs:
+```bash
+python scripts/train_models.py
+streamlit run app/streamlit_app.py
+```
 
-- `/Users/leobix/hurricane-forecasting/models/best_model.joblib`
-- `/Users/leobix/hurricane-forecasting/models/model_manifest.json`
-- `/Users/leobix/hurricane-forecasting/models/preprocessing_metadata.json`
-- `/Users/leobix/hurricane-forecasting/models/candidates/*.joblib`
-- `/Users/leobix/hurricane-forecasting/reports/metrics.json`
-- `/Users/leobix/hurricane-forecasting/reports/feature_importance.csv` (when available)
-- `/Users/leobix/hurricane-forecasting/reports/figures/feature_importance_top15.png`
+Optional training flags:
 
-## End-to-End Flow
+```bash
+python scripts/train_models.py --data-dir data/raw --model all --seed 42 --n-jobs 1
+```
 
-1. `scripts/train_models.py` builds `TrainingConfig`.
-2. `data.py` downloads cached raw CSV files and validates schema.
-3. `features.py` applies feature engineering and temporal split.
-4. `models.py` trains/tunes candidate models.
-5. `train.py` evaluates, selects best RMSE model, and persists outputs.
-6. `app/streamlit_app.py` reads manifest + model and serves predictions.
+`--model` values: `all`, `dummy`, `cart`, `rf`, `lgbm`.
+
+## What Training Produces
+
+After `python scripts/train_models.py`, you should see:
+
+- `models/best_model.joblib`
+- `models/model_manifest.json`
+- `models/preprocessing_metadata.json`
+- `models/candidates/*.joblib`
+- `reports/metrics.json`
+- `reports/feature_importance.csv` (if supported by selected best model)
+- `reports/figures/feature_importance_top15.png`
+
+The Streamlit app depends on these artifacts. If they are missing, the app will ask you to run training first.
+
+## Streamlit Dashboard: What Each Area Does
+
+When you run `streamlit run app/streamlit_app.py`, the dashboard opens with tabs:
+
+- `Intro`
+  Plain-language overview of problem, features, and workflow.
+
+- `Forecast`
+  Three prediction workflows:
+  - Load example storm (existing row)
+  - Manual input (editable controls)
+  - Batch CSV upload (multiple rows)
+
+- `Metrics`
+  Model comparison table/charts plus SHAP explainability (for non-dummy models).
+
+- `Hurricane Atlas`
+  Global storm track visualization.
+
+- `Descriptive Analytics`
+  Distribution, relationship, composition, and advanced EDA plots.
+
+## Data Notes
+
+- Raw datasets are expected in `data/raw/`:
+  - `tropical_cyclones.csv`
+  - `targets_tropical_cyclones.csv`
+- If missing, they are downloaded automatically from configured URLs in `src/hurricane_forecasting/config.py`.
+- Schema checks require key columns (e.g., `YEAR_0`, `MONTH_0`, `DAY_0`, and required prefix groups like `LATITUDE_`, `LONGITUDE_`, `WMO_WIND_`, etc.).
+
+## Reproducibility
+
+Defaults are set for reproducible classroom runs:
+- Random seed: `42`
+- Time-aware CV (`TimeSeriesSplit`) for tuned models
+- Fixed feature order persisted in manifest and reused at inference time
 
 ## Troubleshooting
 
-- **`Model manifest not found`**:
-  Run `python scripts/train_models.py` first.
+- `Model manifest not found`
+  Run: `python scripts/train_models.py`
 
-- **Missing dependency (e.g., `lightgbm`)**:
-  Reinstall requirements with `pip install -r requirements.txt`.
+- `lightgbm` import error
+  Reinstall dependencies: `pip install -r requirements.txt`
 
-- **Dataset download issues**:
-  Check internet access and Dropbox URL availability; files are cached in `/Users/leobix/hurricane-forecasting/data/raw/`.
+- Dataset download failure
+  Check internet access and retry training (data is pulled on demand).
 
-- **Feature mismatch at inference**:
-  Ensure uploaded CSV follows the training raw schema and includes required columns.
+- Feature mismatch during batch upload
+  Ensure uploaded CSV matches the raw training schema expected by the feature pipeline.
+
+- Streamlit command not found
+  Use: `python -m streamlit run app/streamlit_app.py`
+
+## Typical Student Session
+
+1. Activate your virtual environment.
+2. Run `python scripts/train_models.py`.
+3. Run `streamlit run app/streamlit_app.py`.
+4. Open the app in your browser (local URL shown in terminal).
+5. Try Forecast modes, then inspect Metrics and SHAP.
+6. Export prediction reports from the app.

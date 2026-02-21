@@ -126,17 +126,17 @@
     }
   },
   "artifact_paths": {
-    "best_model": "/Users/leobix/hurricane-forecasting/models/best_model.joblib",
+    "best_model": "models/best_model.joblib",
     "candidate_models": {
-      "dummy": "/Users/leobix/hurricane-forecasting/models/candidates/dummy.joblib",
-      "cart": "/Users/leobix/hurricane-forecasting/models/candidates/cart.joblib",
-      "rf": "/Users/leobix/hurricane-forecasting/models/candidates/rf.joblib",
-      "lgbm": "/Users/leobix/hurricane-forecasting/models/candidates/lgbm.joblib"
+      "dummy": "models/candidates/dummy.joblib",
+      "cart": "models/candidates/cart.joblib",
+      "rf": "models/candidates/rf.joblib",
+      "lgbm": "models/candidates/lgbm.joblib"
     },
-    "metrics_report": "/Users/leobix/hurricane-forecasting/reports/metrics.json",
-    "preprocessing_metadata": "/Users/leobix/hurricane-forecasting/models/preprocessing_metadata.json",
-    "feature_importance_csv": "/Users/leobix/hurricane-forecasting/reports/feature_importance.csv",
-    "figures_dir": "/Users/leobix/hurricane-forecasting/reports/figures"
+    "metrics_report": "reports/metrics.json",
+    "preprocessing_metadata": "models/preprocessing_metadata.json",
+    "feature_importance_csv": "reports/feature_importance.csv",
+    "figures_dir": "reports/figures"
   },
   "app_compat_version": "1.0.0",
   "primary_metric": "rmse",

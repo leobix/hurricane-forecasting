@@ -10,7 +10,7 @@ import joblib
 import matplotlib.pyplot as plt
 import pandas as pd
 
-from .config import TrainingConfig
+from .config import PROJECT_ROOT, TrainingConfig
 from .data import load_raw_data
 from .evaluate import evaluate_model, to_jsonable
 from .features import build_features, make_serializable_metadata
@@ -35,6 +35,14 @@ class TrainingOutput:
 def _save_json(path: Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(to_jsonable(payload), indent=2), encoding="utf-8")
+
+
+def _portable_path(path: Path) -> str:
+    resolved = path.resolve()
+    try:
+        return str(resolved.relative_to(PROJECT_ROOT))
+    except ValueError:
+        return str(resolved)
 
 
 def _select_best_model(
@@ -118,7 +126,7 @@ def run_training_pipeline(cfg: TrainingConfig, selected_model: str = "all") -> T
 
         candidate_path = cfg.models_dir / "candidates" / f"{name}.joblib"
         joblib.dump(run.estimator, candidate_path)
-        candidate_model_paths[name] = str(candidate_path.resolve())
+        candidate_model_paths[name] = _portable_path(candidate_path)
 
     best = _select_best_model(runs, all_metrics, cfg.primary_metric)
 
@@ -158,12 +166,12 @@ def run_training_pipeline(cfg: TrainingConfig, selected_model: str = "all") -> T
             "train_timestamp": datetime.now(timezone.utc).isoformat(),
             "metrics": all_metrics,
             "artifact_paths": {
-                "best_model": str(best_model_path.resolve()),
+                "best_model": _portable_path(best_model_path),
                 "candidate_models": candidate_model_paths,
-                "metrics_report": str(metrics_path.resolve()),
-                "preprocessing_metadata": str(preprocessing_metadata_path.resolve()),
-                "feature_importance_csv": str(feature_importance_csv.resolve()) if feature_importance_csv else None,
-                "figures_dir": str(cfg.figures_dir.resolve()),
+                "metrics_report": _portable_path(metrics_path),
+                "preprocessing_metadata": _portable_path(preprocessing_metadata_path),
+                "feature_importance_csv": _portable_path(feature_importance_csv) if feature_importance_csv else None,
+                "figures_dir": _portable_path(cfg.figures_dir),
             },
             "app_compat_version": cfg.app_compat_version,
             "primary_metric": cfg.primary_metric,
